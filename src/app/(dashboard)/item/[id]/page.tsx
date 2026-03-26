@@ -34,12 +34,16 @@ function ScoreBar({ label, score, icon: Icon, color }: { label: string; score: n
 
 export default async function ItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = getItemById(id);
+  const item = await getItemById(id);
   if (!item) notFound();
 
-  const stats = getDashboardStats();
-  const alerts = getAlerts(false, 10);
-  const relatedItems = item.clusterId ? getItemsByCluster(item.clusterId).filter(i => i.id !== item.id) : [];
+  const [stats, alerts] = await Promise.all([
+    getDashboardStats(),
+    getAlerts(false, 10),
+  ]);
+  const relatedItems = item.clusterId
+    ? (await getItemsByCluster(item.clusterId)).filter(i => i.id !== item.id)
+    : [];
 
   const tags: string[] = item.tags ? JSON.parse(item.tags) : [];
 

@@ -62,7 +62,7 @@ for (let i = 0; i < 75; i++) {
 
 async function seed() {
   console.log("Initializing database...");
-  initDatabase();
+  await initDatabase();
   console.log("Seeding data...");
 
   // ─── Entities ───────────────────────────────────────────────────
@@ -85,7 +85,7 @@ async function seed() {
   ];
 
   for (const e of entityData) {
-    db.insert(entities).values(e).run();
+    await db.insert(entities).values(e).run();
   }
 
   // ─── Clusters ───────────────────────────────────────────────────
@@ -103,7 +103,7 @@ async function seed() {
   ];
 
   for (const c of clusterData) {
-    db.insert(clusters).values({ ...c, isDemo: true }).run();
+    await db.insert(clusters).values({ ...c, isDemo: true }).run();
   }
 
   // ─── Items ──────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ async function seed() {
     const prac = item.practical;
     const composite = compositeScore(imp, nov, cred, impact, prac);
 
-    db.insert(items).values({
+    await db.insert(items).values({
       id: itemIds[item.idx],
       title: item.title,
       url: url,
@@ -352,7 +352,7 @@ async function seed() {
   ];
 
   for (const s of signalData) {
-    db.insert(signals).values({ ...s, isDemo: true }).run();
+    await db.insert(signals).values({ ...s, isDemo: true }).run();
   }
 
   // ─── Alerts ───────────────────────────────────────────────────────
@@ -371,7 +371,7 @@ async function seed() {
   ];
 
   for (const a of alertData) {
-    db.insert(alerts).values({ ...a, isDemo: true }).run();
+    await db.insert(alerts).values({ ...a, isDemo: true }).run();
   }
 
   console.log(`Seeded ${itemData.length} items, ${clusterData.length} clusters, ${entityData.length} entities, ${signalData.length} signals, ${alertData.length} alerts.`);

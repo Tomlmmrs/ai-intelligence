@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = searchItems(query, {
+    const results = await searchItems(query, {
       category: params.get("category") || undefined,
       company: params.get("company") || undefined,
       limit: params.get("limit") ? Number(params.get("limit")) : 30,

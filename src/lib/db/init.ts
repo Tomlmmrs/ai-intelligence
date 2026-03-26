@@ -1,9 +1,9 @@
 import { db } from "./index";
 import { sql } from "drizzle-orm";
 
-export function initDatabase() {
+export async function initDatabase() {
   // ─── Items table ──────────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -71,24 +71,24 @@ export function initDatabase() {
     )
   `);
 
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_published ON items(published_at)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_discovered ON items(discovered_at)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_first_seen ON items(first_seen_at)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_composite ON items(composite_score)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_freshness ON items(freshness_score)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_category ON items(category)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_source ON items(source)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_cluster ON items(cluster_id)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_company ON items(company)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_bookmarked ON items(is_bookmarked)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_demo ON items(is_demo)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_date_confidence ON items(date_confidence)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_duplicate ON items(duplicate_of)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_show_main ON items(show_in_main_feed)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_paper_depth ON items(paper_depth)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_published ON items(published_at)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_discovered ON items(discovered_at)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_first_seen ON items(first_seen_at)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_composite ON items(composite_score)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_freshness ON items(freshness_score)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_category ON items(category)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_source ON items(source)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_cluster ON items(cluster_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_company ON items(company)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_bookmarked ON items(is_bookmarked)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_demo ON items(is_demo)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_date_confidence ON items(date_confidence)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_duplicate ON items(duplicate_of)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_show_main ON items(show_in_main_feed)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_paper_depth ON items(paper_depth)`);
 
   // ─── Clusters table ───────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS clusters (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -107,7 +107,7 @@ export function initDatabase() {
   `);
 
   // ─── Sources table ────────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS sources (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -136,7 +136,7 @@ export function initDatabase() {
   `);
 
   // ─── Source Fetch Log table ────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS source_fetch_log (
       id TEXT PRIMARY KEY,
       source_id TEXT NOT NULL,
@@ -150,11 +150,11 @@ export function initDatabase() {
       http_status INTEGER
     )
   `);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_fetch_log_source ON source_fetch_log(source_id)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_fetch_log_date ON source_fetch_log(fetched_at)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_fetch_log_source ON source_fetch_log(source_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_fetch_log_date ON source_fetch_log(fetched_at)`);
 
   // ─── Entities table ───────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS entities (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -168,11 +168,11 @@ export function initDatabase() {
       last_mentioned TEXT
     )
   `);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type)`);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_entities_mentions ON entities(mention_count)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_entities_mentions ON entities(mention_count)`);
 
   // ─── Signals table ────────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS signals (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -190,7 +190,7 @@ export function initDatabase() {
   `);
 
   // ─── User Preferences table ───────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS user_preferences (
       id TEXT PRIMARY KEY DEFAULT 'default',
       interests TEXT,
@@ -203,7 +203,7 @@ export function initDatabase() {
   `);
 
   // ─── Bookmarks table ─────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS bookmarks (
       id TEXT PRIMARY KEY,
       item_id TEXT NOT NULL REFERENCES items(id),
@@ -211,10 +211,10 @@ export function initDatabase() {
       created_at TEXT NOT NULL
     )
   `);
-  db.run(sql`CREATE INDEX IF NOT EXISTS idx_bookmarks_item ON bookmarks(item_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS idx_bookmarks_item ON bookmarks(item_id)`);
 
   // ─── Alerts table ────────────────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     CREATE TABLE IF NOT EXISTS alerts (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
@@ -228,7 +228,7 @@ export function initDatabase() {
   `);
 
   // ─── Default User Preferences ─────────────────────────────────────
-  db.run(sql`
+  await db.run(sql`
     INSERT OR IGNORE INTO user_preferences (id, interests, importance_threshold, enabled_categories, alert_settings, default_time_window, updated_at)
     VALUES (
       'default',
@@ -273,7 +273,7 @@ export function initDatabase() {
   ];
 
   for (const s of defaultSources) {
-    db.run(sql`
+    await db.run(sql`
       INSERT OR IGNORE INTO sources (id, name, type, url, category, enabled, credibility_base, trust_tier, source_priority, fetch_interval_minutes)
       VALUES (
         ${s.id}, ${s.name}, ${s.type}, ${s.url}, ${s.category},
@@ -287,5 +287,5 @@ export function initDatabase() {
 
 // Allow running standalone
 if (typeof require !== "undefined" && require.main === module) {
-  initDatabase();
+  initDatabase().then(() => process.exit(0));
 }

@@ -5,8 +5,8 @@ import { GitHubAdapter } from "./github-adapter";
 import { HuggingFacePapersAdapter } from "./hf-papers-adapter";
 import type { SourceAdapter } from "../types";
 
-export function getEnabledAdapters(): SourceAdapter[] {
-  const sources = db
+export async function getEnabledAdapters(): Promise<SourceAdapter[]> {
+  const sources = await db
     .select()
     .from(schema.sources)
     .where(eq(schema.sources.enabled, true))

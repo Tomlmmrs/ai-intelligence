@@ -77,16 +77,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   let items: any[] = [];
 
   try {
-    stats = getDashboardStats();
-    signalsList = getActiveSignals(8);
-    trending = getTrendingClusters(8);
-    topEntitiesList = getTopEntities(undefined, 12);
+    [stats, signalsList, trending, topEntitiesList] = await Promise.all([
+      getDashboardStats(),
+      getActiveSignals(8),
+      getTrendingClusters(8),
+      getTopEntities(undefined, 12),
+    ]);
 
     if (isFilteredView) {
-      items = getItems({ mode, category, company, search, limit: 40, timeWindow, paperDepth });
+      items = await getItems({ mode, category, company, search, limit: 40, timeWindow, paperDepth });
     } else {
       // Default sectioned view
-      sections = getFeedSections(timeWindow);
+      sections = await getFeedSections(timeWindow);
     }
   } catch {
     return (

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const results = getItems(opts);
+    const results = await getItems(opts);
     return NextResponse.json({ items: results, count: results.length });
   } catch (error) {
     console.error("Error fetching items:", error);
@@ -36,11 +36,11 @@ export async function PATCH(request: NextRequest) {
     const { id, action } = body;
 
     if (action === "bookmark") {
-      const result = toggleBookmark(id);
+      const result = await toggleBookmark(id);
       return NextResponse.json(result);
     }
     if (action === "read") {
-      markAsRead(id);
+      await markAsRead(id);
       return NextResponse.json({ success: true });
     }
 

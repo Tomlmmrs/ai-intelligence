@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Protect admin routes with INGEST_API_KEY
   if (request.nextUrl.pathname.startsWith("/admin")) {
     const apiKey = process.env.INGEST_API_KEY;

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const item = getItemById(id);
+  const item = await getItemById(id);
   if (!item) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const full = `What is this?\n${explanation.whatIsThis}\n\nWhy it matters:\n${explanation.whyItMatters}\n\nWho should care:\n${explanation.whoShouldCare}`;
 
   // Cache for next time
-  db.update(schema.items)
+  await db.update(schema.items)
     .set({
       implications: full,
       whyItMatters: item.whyItMatters || explanation.whyItMatters,

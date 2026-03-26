@@ -9,11 +9,13 @@ import {
 
 export async function GET() {
   try {
-    const stats = getDashboardStats();
-    const signals = getActiveSignals();
-    const trending = getTrendingClusters();
-    const topEntities = getTopEntities(undefined, 15);
-    const companies = getCompanies();
+    const [stats, signals, trending, topEntities, companies] = await Promise.all([
+      getDashboardStats(),
+      getActiveSignals(),
+      getTrendingClusters(),
+      getTopEntities(undefined, 15),
+      getCompanies(),
+    ]);
 
     return NextResponse.json({
       stats,

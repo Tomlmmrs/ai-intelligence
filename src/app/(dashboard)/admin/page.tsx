@@ -3,13 +3,15 @@ import { formatRelativeTime } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminPage() {
+export default async function AdminPage() {
   let sources, recentItems, stats, ingestionStats;
   try {
-    sources = getSourceHealth();
-    recentItems = getItemsForAdmin(50);
-    stats = getDashboardStats(true);
-    ingestionStats = getIngestionStats();
+    [sources, recentItems, stats, ingestionStats] = await Promise.all([
+      getSourceHealth(),
+      getItemsForAdmin(50),
+      getDashboardStats(true),
+      getIngestionStats(),
+    ]);
   } catch (err) {
     return (
       <div className="max-w-6xl mx-auto p-6">

@@ -188,8 +188,8 @@ function calculateComposite(scores: {
 
 // ─── Get source credibility from DB ─────────────────────────────────
 
-function getSourceCredibility(sourceId: string): number {
-  const source = db
+async function getSourceCredibility(sourceId: string): Promise<number> {
+  const source = await db
     .select({ credibilityBase: schema.sources.credibilityBase })
     .from(schema.sources)
     .where(eq(schema.sources.id, sourceId))
@@ -199,10 +199,10 @@ function getSourceCredibility(sourceId: string): number {
 
 // ─── Title-based deduplication ──────────────────────────────────────
 
-function findSimilarItem(title: string, url: string): string | null {
+async function findSimilarItem(title: string, url: string): Promise<string | null> {
   // First check normalized URL
   const normalizedUrl = normalizeUrl(url);
-  const urlMatch = db
+  const urlMatch = await db
     .select({ id: schema.items.id })
     .from(schema.items)
     .where(eq(schema.items.url, normalizedUrl))
@@ -210,7 +210,7 @@ function findSimilarItem(title: string, url: string): string | null {
   if (urlMatch) return urlMatch.id;
 
   // Check canonical URL
-  const canonicalMatch = db
+  const canonicalMatch = await db
     .select({ id: schema.items.id })
     .from(schema.items)
     .where(eq(schema.items.canonicalUrl, normalizedUrl))
@@ -218,7 +218,7 @@ function findSimilarItem(title: string, url: string): string | null {
   if (canonicalMatch) return canonicalMatch.id;
 
   // Check title similarity against recent items (last 7 days)
-  const recentItems = db
+  const recentItems = await db
     .select({ id: schema.items.id, title: schema.items.title })
     .from(schema.items)
     .where(
@@ -238,7 +238,7 @@ function findSimilarItem(title: string, url: string): string | null {
 
 // ─── Normalize ───────────────────────────────────────────────────────
 
-function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
+async function normalize(raw: RawItem, adapter: SourceAdapter): Promise<NewItem> {
   const now = new Date().toISOString();
   const content = raw.content ?? "";
   const category = detectCategory(raw.title, content);
@@ -259,7 +259,7 @@ function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
 
   const importance = estimateImportance(raw.title, content);
   const novelty = estimateNovelty(raw.title, content);
-  const credibility = getSourceCredibility(adapter.id);
+  const credibility = await getSourceCredibility(adapter.id);
   const impact = Math.round((importance + novelty) / 2);
   const practical = 50;
   const freshness = computeFreshnessScore(publishedAt, dateConfidence);
@@ -424,9 +424,9 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
     console.error(`[pipeline] Fetch failed for ${adapter.id}: ${message}`);
 
     // Record failure
-    recordSourceFailure(adapter.id, message);
+    await recordSourceFailure(adapter.id, message);
     result.durationMs = Date.now() - startTime;
-    logFetch(adapter.id, result, "error", message);
+    await logFetch(adapter.id, result, "error", message);
     return result;
   }
 
@@ -441,7 +441,7 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
 
       // Check for URL duplicate
       const normalizedUrl = normalizeUrl(raw.url);
-      const existingByUrl = db
+      const existingByUrl = await db
         .select({ id: schema.items.id })
         .from(schema.items)
         .where(eq(schema.items.url, normalizedUrl))
@@ -454,7 +454,7 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
           parsedDate?.iso,
           raw.dateConfidence ?? parsedDate?.confidence
         );
-        db.update(schema.items)
+        await db.update(schema.items)
           .set({
             freshnessScore: freshness,
             lastValidatedAt: new Date().toISOString(),
@@ -466,8 +466,8 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
       }
 
       // Check for title-based duplicate
-      const similarItemId = findSimilarItem(raw.title, raw.url);
-      const item = normalize(raw, adapter);
+      const similarItemId = await findSimilarItem(raw.title, raw.url);
+      const item = await normalize(raw, adapter);
 
       if (similarItemId) {
         // Insert but mark as duplicate
@@ -475,7 +475,7 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
         result.duplicates++;
       }
 
-      db.insert(schema.items).values(item).run();
+      await db.insert(schema.items).values(item).run();
       if (!similarItemId) {
         result.new++;
       }
@@ -493,8 +493,8 @@ export async function runPipeline(adapter: SourceAdapter): Promise<PipelineResul
 
   // 3. Update source health
   result.durationMs = Date.now() - startTime;
-  recordSourceSuccess(adapter.id, result);
-  logFetch(adapter.id, result, result.errors.length > 0 ? "partial" : "ok");
+  await recordSourceSuccess(adapter.id, result);
+  await logFetch(adapter.id, result, result.errors.length > 0 ? "partial" : "ok");
 
   console.log(
     `[pipeline] Completed ${adapter.id}: ${result.new} new, ${result.updated} updated, ${result.duplicates} dupes, ${result.skipped} skipped, ${result.errors.length} errors (${result.durationMs}ms)`
@@ -520,9 +520,9 @@ async function fetchWithRetry(adapter: SourceAdapter, maxRetries: number): Promi
   throw lastError!;
 }
 
-function recordSourceFailure(sourceId: string, errorMsg: string) {
+async function recordSourceFailure(sourceId: string, errorMsg: string) {
   try {
-    db.update(schema.sources)
+    await db.update(schema.sources)
       .set({
         lastFetched: new Date().toISOString(),
         lastError: errorMsg,
@@ -538,9 +538,9 @@ function recordSourceFailure(sourceId: string, errorMsg: string) {
   }
 }
 
-function recordSourceSuccess(sourceId: string, result: PipelineResult) {
+async function recordSourceSuccess(sourceId: string, result: PipelineResult) {
   try {
-    db.update(schema.sources)
+    await db.update(schema.sources)
       .set({
         lastFetched: new Date().toISOString(),
         lastSuccessAt: new Date().toISOString(),
@@ -561,9 +561,9 @@ function recordSourceSuccess(sourceId: string, result: PipelineResult) {
   }
 }
 
-function logFetch(sourceId: string, result: PipelineResult, status: string, errorMsg?: string) {
+async function logFetch(sourceId: string, result: PipelineResult, status: string, errorMsg?: string) {
   try {
-    db.insert(schema.sourceFetchLog).values({
+    await db.insert(schema.sourceFetchLog).values({
       id: randomUUID(),
       sourceId,
       fetchedAt: new Date().toISOString(),
@@ -582,7 +582,7 @@ function logFetch(sourceId: string, result: PipelineResult, status: string, erro
 export async function runAllSources(): Promise<PipelineResult[]> {
   console.log("[pipeline] Starting full ingestion run...");
 
-  const adapters = getEnabledAdapters();
+  const adapters = await getEnabledAdapters();
   console.log(`[pipeline] Found ${adapters.length} enabled source(s)`);
 
   const results: PipelineResult[] = [];

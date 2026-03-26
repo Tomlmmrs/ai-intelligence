@@ -64,7 +64,7 @@ function timeWindowCondition(tw: TimeWindow) {
   )`;
 }
 
-export function getItems(opts: ItemQueryOptions = {}) {
+export async function getItems(opts: ItemQueryOptions = {}) {
   const conditions = [];
 
   // Exclude demo data by default
@@ -187,7 +187,7 @@ export function getItems(opts: ItemQueryOptions = {}) {
   const needsCap = opts.mode !== "research" && opts.mode !== "opensource";
   const fetchLimit = needsCap ? requestedLimit * 2 : requestedLimit;
 
-  const rows = db
+  const rows = await db
     .select()
     .from(items)
     .where(where)
@@ -216,12 +216,12 @@ export function getItems(opts: ItemQueryOptions = {}) {
   return result;
 }
 
-export function getItemById(id: string) {
-  return db.select().from(items).where(eq(items.id, id)).get();
+export async function getItemById(id: string) {
+  return await db.select().from(items).where(eq(items.id, id)).get();
 }
 
-export function getItemsByCluster(clusterId: string) {
-  return db
+export async function getItemsByCluster(clusterId: string) {
+  return await db
     .select()
     .from(items)
     .where(eq(items.clusterId, clusterId))
@@ -229,18 +229,18 @@ export function getItemsByCluster(clusterId: string) {
     .all();
 }
 
-export function toggleBookmark(itemId: string) {
-  const item = getItemById(itemId);
+export async function toggleBookmark(itemId: string) {
+  const item = await getItemById(itemId);
   if (!item) return null;
-  db.update(items)
+  await db.update(items)
     .set({ isBookmarked: !item.isBookmarked })
     .where(eq(items.id, itemId))
     .run();
   return { ...item, isBookmarked: !item.isBookmarked };
 }
 
-export function markAsRead(itemId: string) {
-  db.update(items)
+export async function markAsRead(itemId: string) {
+  await db.update(items)
     .set({ isRead: true })
     .where(eq(items.id, itemId))
     .run();
@@ -248,8 +248,8 @@ export function markAsRead(itemId: string) {
 
 // ─── Clusters ───────────────────────────────────────────────────────
 
-export function getClusters(limit = 20) {
-  return db
+export async function getClusters(limit = 20) {
+  return await db
     .select()
     .from(clusters)
     .orderBy(desc(clusters.lastUpdated))
@@ -257,13 +257,13 @@ export function getClusters(limit = 20) {
     .all();
 }
 
-export function getClusterById(id: string) {
-  return db.select().from(clusters).where(eq(clusters.id, id)).get();
+export async function getClusterById(id: string) {
+  return await db.select().from(clusters).where(eq(clusters.id, id)).get();
 }
 
-export function getTrendingClusters(limit = 10, includeDemo = false) {
+export async function getTrendingClusters(limit = 10, includeDemo = false) {
   const conditions = includeDemo ? undefined : eq(clusters.isDemo, false);
-  return db
+  return await db
     .select()
     .from(clusters)
     .where(conditions)
@@ -274,11 +274,11 @@ export function getTrendingClusters(limit = 10, includeDemo = false) {
 
 // ─── Signals ────────────────────────────────────────────────────────
 
-export function getActiveSignals(limit = 10, includeDemo = false) {
+export async function getActiveSignals(limit = 10, includeDemo = false) {
   const conditions = includeDemo
     ? eq(signals.isActive, true)
     : and(eq(signals.isActive, true), eq(signals.isDemo, false));
-  return db
+  return await db
     .select()
     .from(signals)
     .where(conditions)
@@ -289,9 +289,9 @@ export function getActiveSignals(limit = 10, includeDemo = false) {
 
 // ─── Entities ───────────────────────────────────────────────────────
 
-export function getTopEntities(type?: string, limit = 20) {
+export async function getTopEntities(type?: string, limit = 20) {
   const conditions = type ? eq(entities.type, type) : undefined;
-  return db
+  return await db
     .select()
     .from(entities)
     .where(conditions)
@@ -300,18 +300,18 @@ export function getTopEntities(type?: string, limit = 20) {
     .all();
 }
 
-export function getEntityById(id: string) {
-  return db.select().from(entities).where(eq(entities.id, id)).get();
+export async function getEntityById(id: string) {
+  return await db.select().from(entities).where(eq(entities.id, id)).get();
 }
 
 // ─── Alerts ─────────────────────────────────────────────────────────
 
-export function getAlerts(unreadOnly = false, limit = 20, includeDemo = false) {
+export async function getAlerts(unreadOnly = false, limit = 20, includeDemo = false) {
   const conditions = [];
   if (!includeDemo) conditions.push(eq(alerts.isDemo, false));
   if (unreadOnly) conditions.push(eq(alerts.isRead, false));
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  return db
+  return await db
     .select()
     .from(alerts)
     .where(where)
@@ -320,10 +320,10 @@ export function getAlerts(unreadOnly = false, limit = 20, includeDemo = false) {
     .all();
 }
 
-export function getUnreadAlertCount(includeDemo = false) {
+export async function getUnreadAlertCount(includeDemo = false) {
   const conditions = [eq(alerts.isRead, false)];
   if (!includeDemo) conditions.push(eq(alerts.isDemo, false));
-  const result = db
+  const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(alerts)
     .where(and(...conditions))
@@ -331,8 +331,8 @@ export function getUnreadAlertCount(includeDemo = false) {
   return result?.count ?? 0;
 }
 
-export function markAlertRead(alertId: string) {
-  db.update(alerts)
+export async function markAlertRead(alertId: string) {
+  await db.update(alerts)
     .set({ isRead: true })
     .where(eq(alerts.id, alertId))
     .run();
@@ -340,45 +340,45 @@ export function markAlertRead(alertId: string) {
 
 // ─── Stats ──────────────────────────────────────────────────────────
 
-export function getDashboardStats(includeDemo = false) {
+export async function getDashboardStats(includeDemo = false) {
   const demoFilter = includeDemo ? undefined : eq(items.isDemo, false);
 
-  const totalItems = db
+  const totalItems = (await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
     .where(demoFilter)
-    .get()?.count ?? 0;
+    .get())?.count ?? 0;
 
-  const todayItems = db
+  const todayItems = (await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
     .where(includeDemo
       ? sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-24 hours')`
       : and(eq(items.isDemo, false), sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-24 hours')`)
     )
-    .get()?.count ?? 0;
+    .get())?.count ?? 0;
 
-  const last3dItems = db
+  const last3dItems = (await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
     .where(includeDemo
       ? sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-72 hours')`
       : and(eq(items.isDemo, false), sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-72 hours')`)
     )
-    .get()?.count ?? 0;
+    .get())?.count ?? 0;
 
-  const activeSignalCount = db
+  const activeSignalCount = (await db
     .select({ count: sql<number>`count(*)` })
     .from(signals)
     .where(includeDemo
       ? eq(signals.isActive, true)
       : and(eq(signals.isActive, true), eq(signals.isDemo, false))
     )
-    .get()?.count ?? 0;
+    .get())?.count ?? 0;
 
-  const unreadAlerts = getUnreadAlertCount(includeDemo);
+  const unreadAlerts = await getUnreadAlertCount(includeDemo);
 
-  const categoryCounts = db
+  const categoryCounts = await db
     .select({
       category: items.category,
       count: sql<number>`count(*)`,
@@ -388,11 +388,11 @@ export function getDashboardStats(includeDemo = false) {
     .groupBy(items.category)
     .all();
 
-  const demoItemCount = db
+  const demoItemCount = (await db
     .select({ count: sql<number>`count(*)` })
     .from(items)
     .where(eq(items.isDemo, true))
-    .get()?.count ?? 0;
+    .get())?.count ?? 0;
 
   return {
     totalItems,
@@ -407,22 +407,22 @@ export function getDashboardStats(includeDemo = false) {
 
 // ─── Source Health ───────────────────────────────────────────────────
 
-export function getSourceHealth() {
-  const sources_list = db.select().from(sourcesTable).all();
-  return sources_list.map((source) => {
-    const itemCount = db
+export async function getSourceHealth() {
+  const sources_list = await db.select().from(sourcesTable).all();
+  return Promise.all(sources_list.map(async (source) => {
+    const itemCount = (await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
       .where(eq(items.source, source.id))
-      .get()?.count ?? 0;
+      .get())?.count ?? 0;
 
-    const liveItemCount = db
+    const liveItemCount = (await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
       .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
-      .get()?.count ?? 0;
+      .get())?.count ?? 0;
 
-    const recentItemCount = db
+    const recentItemCount = (await db
       .select({ count: sql<number>`count(*)` })
       .from(items)
       .where(and(
@@ -430,15 +430,15 @@ export function getSourceHealth() {
         eq(items.isDemo, false),
         sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-72 hours')`
       ))
-      .get()?.count ?? 0;
+      .get())?.count ?? 0;
 
-    const avgFreshnessResult = db
+    const avgFreshnessResult = await db
       .select({ avg: sql<number>`AVG(${items.freshnessScore})` })
       .from(items)
       .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
       .get();
 
-    const oldestLiveItem = db
+    const oldestLiveItem = await db
       .select({ publishedAt: items.publishedAt })
       .from(items)
       .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
@@ -446,7 +446,7 @@ export function getSourceHealth() {
       .limit(1)
       .get();
 
-    const newestLiveItem = db
+    const newestLiveItem = await db
       .select({ publishedAt: items.publishedAt })
       .from(items)
       .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
@@ -455,7 +455,7 @@ export function getSourceHealth() {
       .get();
 
     // Get recent fetch logs
-    const recentLogs = db
+    const recentLogs = await db
       .select()
       .from(sourceFetchLog)
       .where(eq(sourceFetchLog.sourceId, source.id))
@@ -473,13 +473,13 @@ export function getSourceHealth() {
       newestItem: newestLiveItem?.publishedAt ?? null,
       recentLogs,
     };
-  });
+  }));
 }
 
 // ─── Admin Items View ───────────────────────────────────────────────
 
-export function getItemsForAdmin(limit = 50) {
-  return db
+export async function getItemsForAdmin(limit = 50) {
+  return await db
     .select()
     .from(items)
     .orderBy(desc(items.discoveredAt))
@@ -489,12 +489,12 @@ export function getItemsForAdmin(limit = 50) {
 
 // ─── User Preferences ──────────────────────────────────────────────
 
-export function getUserPreferences() {
-  return db.select().from(userPreferences).where(eq(userPreferences.id, "default")).get();
+export async function getUserPreferences() {
+  return await db.select().from(userPreferences).where(eq(userPreferences.id, "default")).get();
 }
 
-export function updateUserPreferences(prefs: Partial<schema.UserPreferences>) {
-  db.update(userPreferences)
+export async function updateUserPreferences(prefs: Partial<schema.UserPreferences>) {
+  await db.update(userPreferences)
     .set({ ...prefs, updatedAt: new Date().toISOString() })
     .where(eq(userPreferences.id, "default"))
     .run();
@@ -502,8 +502,8 @@ export function updateUserPreferences(prefs: Partial<schema.UserPreferences>) {
 
 // ─── Search ─────────────────────────────────────────────────────────
 
-export function searchItems(query: string, filters?: { category?: string; company?: string; limit?: number }) {
-  return getItems({
+export async function searchItems(query: string, filters?: { category?: string; company?: string; limit?: number }) {
+  return await getItems({
     search: query,
     category: filters?.category as Category,
     company: filters?.company,
@@ -514,8 +514,8 @@ export function searchItems(query: string, filters?: { category?: string; compan
 
 // ─── Companies ──────────────────────────────────────────────────────
 
-export function getCompanies() {
-  return db
+export async function getCompanies() {
+  return await db
     .select({
       company: items.company,
       count: sql<number>`count(*)`,
@@ -530,7 +530,7 @@ export function getCompanies() {
 
 // ─── Feed Sections (for homepage) ────────────────────────────────────
 
-export function getFeedSections(timeWindow: TimeWindow = "3d") {
+export async function getFeedSections(timeWindow: TimeWindow = "3d") {
   const twCond = timeWindowCondition(timeWindow);
   const baseConditions = [
     eq(items.isDemo, false),
@@ -539,8 +539,8 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   if (twCond) baseConditions.push(twCond);
 
   // Helper: run a section query
-  const sectionQuery = (extraConditions: any[], limit: number, orderBy: any[]) => {
-    return db
+  const sectionQuery = async (extraConditions: any[], limit: number, orderBy: any[]) => {
+    return await db
       .select()
       .from(items)
       .where(and(...baseConditions, ...extraConditions))
@@ -556,7 +556,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   ];
 
   // Major AI Releases: model releases + major announcements from official sources
-  const releases = sectionQuery(
+  const releases = await sectionQuery(
     [
       or(eq(items.category, "model"), eq(items.category, "company")),
       sql`${items.source} NOT LIKE 'arxiv%'`,
@@ -567,7 +567,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   );
 
   // New Tools & Products
-  const tools = sectionQuery(
+  const tools = await sectionQuery(
     [
       eq(items.category, "tool"),
       sql`${items.source} NOT LIKE 'arxiv%'`,
@@ -577,7 +577,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   );
 
   // Open Source Momentum
-  const opensource = sectionQuery(
+  const opensource = await sectionQuery(
     [
       or(eq(items.category, "opensource"), eq(items.isOpenSource, true)),
     ],
@@ -586,7 +586,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   );
 
   // Important Developments (high-scoring non-research)
-  const developments = sectionQuery(
+  const developments = await sectionQuery(
     [
       sql`${items.category} != 'research'`,
       sql`${items.source} NOT LIKE 'arxiv%'`,
@@ -597,7 +597,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   );
 
   // Important Research (only main-feed worthy papers)
-  const research = sectionQuery(
+  const research = await sectionQuery(
     [
       eq(items.category, "research"),
       eq(items.showInMainFeed, true),
@@ -608,7 +608,7 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
   );
 
   // Early Signals (novel, recent, lower importance)
-  const signals = sectionQuery(
+  const signals = await sectionQuery(
     [
       sql`COALESCE(${items.noveltyScore}, 50) >= 60`,
       sql`${items.source} NOT LIKE 'arxiv%'`,
@@ -622,8 +622,8 @@ export function getFeedSections(timeWindow: TimeWindow = "3d") {
 
 // ─── Ingestion Stats (for admin) ────────────────────────────────────
 
-export function getIngestionStats() {
-  const sourceStats = db
+export async function getIngestionStats() {
+  const sourceStats = await db
     .select({
       source: items.source,
       total: sql<number>`count(*)`,
@@ -639,7 +639,7 @@ export function getIngestionStats() {
     .groupBy(items.source)
     .all();
 
-  const dateConfidenceBreakdown = db
+  const dateConfidenceBreakdown = await db
     .select({
       confidence: items.dateConfidence,
       count: sql<number>`count(*)`,

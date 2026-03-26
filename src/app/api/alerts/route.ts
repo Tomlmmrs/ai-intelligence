@@ -4,8 +4,10 @@ import { getAlerts, getUnreadAlertCount, markAlertRead } from "@/lib/db/queries"
 export async function GET(request: NextRequest) {
   const unreadOnly = request.nextUrl.searchParams.get("unread") === "true";
   try {
-    const alertList = getAlerts(unreadOnly);
-    const unreadCount = getUnreadAlertCount();
+    const [alertList, unreadCount] = await Promise.all([
+      getAlerts(unreadOnly),
+      getUnreadAlertCount(),
+    ]);
     return NextResponse.json({ alerts: alertList, unreadCount });
   } catch (error) {
     console.error("Error fetching alerts:", error);
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { id } = await request.json();
-    markAlertRead(id);
+    await markAlertRead(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating alert:", error);

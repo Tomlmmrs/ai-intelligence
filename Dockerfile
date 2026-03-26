@@ -1,13 +1,9 @@
 FROM node:22-alpine AS base
-
-# Install dependencies for better-sqlite3 native build
-RUN apk add --no-cache python3 make g++
-
 WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm ci
 
 # Copy source
 COPY . .
@@ -24,9 +20,6 @@ RUN apk add --no-cache curl
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
-
-# Create data directory for SQLite
-RUN mkdir -p /app/data
 
 # Copy built app
 COPY --from=base /app/.next/standalone ./
