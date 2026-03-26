@@ -13,7 +13,7 @@ npm run dev        # Start development server at http://localhost:3000
 ```
 
 ## Architecture
-
+test
 ```
 src/
 ├── app/                    # Next.js App Router pages & API routes
