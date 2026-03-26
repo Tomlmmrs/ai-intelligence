@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     offset: params.get("offset") ? Number(params.get("offset")) : 0,
     bookmarkedOnly: params.get("bookmarked") === "true",
     timeWindow: (params.get("t") || "3d") as TimeWindow,
+    paperDepth: params.get("depth") as "general" | "intermediate" | "advanced" | undefined,
   };
 
   try {

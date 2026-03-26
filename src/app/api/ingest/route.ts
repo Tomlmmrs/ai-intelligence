@@ -1,8 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Require API key for ingestion
+  const apiKey = process.env.INGEST_API_KEY;
+  if (apiKey) {
+    const provided =
+      request.headers.get("x-api-key") ??
+      request.nextUrl.searchParams.get("key");
+    if (provided !== apiKey) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
-    // Dynamic import to avoid loading ingestion code on every request
     const { runAllSources } = await import("@/lib/ingestion/pipeline");
     const results = await runAllSources();
     return NextResponse.json({ results });

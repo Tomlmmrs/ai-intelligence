@@ -45,6 +45,19 @@ export const items = sqliteTable(
     compositeScore: real("composite_score").default(50),
     freshnessScore: real("freshness_score").default(50),
 
+    // Real-world relevance: "Does this affect what people are building or using?"
+    realWorldRelevance: real("real_world_relevance").default(50),
+    itemLabel: text("item_label"),   // Model Release, New Tool, API Update, etc.
+    impactTag: text("impact_tag"),   // High Impact, Worth Watching, Early Signal, Experimental
+
+    // Paper-specific scoring (only populated for research items)
+    paperBroadRelevance: real("paper_broad_relevance"),
+    paperComposite: real("paper_composite"),
+    paperDepth: text("paper_depth"),              // general, intermediate, advanced
+    paperInclusionReason: text("paper_inclusion_reason"), // major_lab, capability_shift, etc.
+    showInMainFeed: integer("show_in_main_feed", { mode: "boolean" }).default(true),
+    showInResearchFeed: integer("show_in_research_feed", { mode: "boolean" }).default(true),
+
     // Metadata
     entities: text("entities"), // JSON array
     tags: text("tags"), // JSON array
@@ -82,6 +95,8 @@ export const items = sqliteTable(
     index("idx_items_demo").on(table.isDemo),
     index("idx_items_date_confidence").on(table.dateConfidence),
     index("idx_items_duplicate").on(table.duplicateOf),
+    index("idx_items_show_main").on(table.showInMainFeed),
+    index("idx_items_paper_depth").on(table.paperDepth),
   ]
 );
 

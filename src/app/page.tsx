@@ -8,7 +8,8 @@ import TopEntities from "@/components/dashboard/TopEntities";
 import RankModeSelector from "@/components/filters/RankModeSelector";
 import CategoryFilter from "@/components/filters/CategoryFilter";
 import TimeWindowFilter from "@/components/filters/TimeWindowFilter";
-import { getDashboardStats, getItems, getActiveSignals, getTrendingClusters, getTopEntities } from "@/lib/db/queries";
+import ResearchDepthFilter from "@/components/filters/ResearchDepthFilter";
+import { getDashboardStats, getItems, getFeedSections, getActiveSignals, getTrendingClusters, getTopEntities } from "@/lib/db/queries";
 import type { RankMode, Category, TimeWindow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +22,43 @@ interface PageProps {
     q?: string;
     view?: string;
     t?: string;
+    depth?: string;
   }>;
 }
+
+// ─── Feed Section Component ──────────────────────────────────────────
+
+function FeedSection({
+  title,
+  items,
+  emptyMessage,
+}: {
+  title: string;
+  items: any[];
+  emptyMessage?: string;
+}) {
+  if (items.length === 0) {
+    if (!emptyMessage) return null;
+    return (
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-muted-foreground mb-2">{title}</h2>
+        <p className="text-xs text-muted">{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8">
+      <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        {title}
+        <span className="text-[10px] text-muted-foreground font-normal">({items.length})</span>
+      </h2>
+      <ItemList items={items} />
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -31,14 +67,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const company = params.company || undefined;
   const search = params.q || undefined;
   const timeWindow = (params.t || "3d") as TimeWindow;
+  const paperDepth = params.depth as "general" | "intermediate" | "advanced" | undefined;
 
-  let stats, items, signalsList, trending, topEntitiesList;
+  // Determine if we should show sectioned view (default) or flat filtered view
+  const isFilteredView = !!(category || company || search || mode === "research" || mode === "opensource" || mode === "novel" || mode === "impactful" || mode === "underrated");
+
+  let stats: any, signalsList: any, trending: any, topEntitiesList: any;
+  let sections: any = null;
+  let items: any[] = [];
+
   try {
     stats = getDashboardStats();
-    items = getItems({ mode, category, company, search, limit: 40, timeWindow });
     signalsList = getActiveSignals(8);
     trending = getTrendingClusters(8);
     topEntitiesList = getTopEntities(undefined, 12);
+
+    if (isFilteredView) {
+      items = getItems({ mode, category, company, search, limit: 40, timeWindow, paperDepth });
+    } else {
+      // Default sectioned view
+      sections = getFeedSections(timeWindow);
+    }
   } catch {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -50,9 +99,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <code className="block rounded-lg bg-background px-4 py-3 text-sm text-accent">
             npm run db:seed
           </code>
-          <p className="mt-4 text-sm text-muted">
-            This will create the database and populate it with demo data.
-          </p>
         </div>
       </div>
     );
@@ -74,9 +120,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   <TimeWindowFilter />
                 </div>
 
-                <div className="mt-3">
-                  <CategoryFilter />
-                </div>
+                {isFilteredView && (
+                  <div className="mt-3 flex items-center gap-4">
+                    <CategoryFilter />
+                    {mode === "research" && <ResearchDepthFilter />}
+                  </div>
+                )}
 
                 {search && (
                   <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm">
@@ -86,20 +135,61 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   </div>
                 )}
 
-                {items.length === 0 && !search && (
-                  <div className="mt-6 rounded-lg border border-border bg-card p-8 text-center">
-                    <p className="text-muted-foreground">
-                      No items found in this time window. Try expanding the time range or run ingestion:
-                    </p>
-                    <code className="mt-3 block rounded-lg bg-background px-4 py-2 text-sm text-accent">
-                      npm run ingest
-                    </code>
+                {/* Sectioned view (default homepage) */}
+                {sections && (
+                  <div className="mt-5">
+                    <FeedSection
+                      title="Major AI Releases"
+                      items={sections.releases}
+                    />
+                    <FeedSection
+                      title="Important Developments"
+                      items={sections.developments}
+                    />
+                    <FeedSection
+                      title="New Tools & Products"
+                      items={sections.tools}
+                    />
+                    <FeedSection
+                      title="Open Source Momentum"
+                      items={sections.opensource}
+                    />
+                    <FeedSection
+                      title="Early Signals"
+                      items={sections.signals}
+                    />
+                    <FeedSection
+                      title="Important Research"
+                      items={sections.research}
+                    />
+
+                    {Object.values(sections).every((s: any) => s.length === 0) && (
+                      <div className="mt-6 rounded-lg border border-border bg-card p-8 text-center">
+                        <p className="text-muted-foreground">
+                          No items found in this time window. Try expanding the time range or run ingestion:
+                        </p>
+                        <code className="mt-3 block rounded-lg bg-background px-4 py-2 text-sm text-accent">
+                          npm run ingest
+                        </code>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="mt-4">
-                  <ItemList items={items} />
-                </div>
+                {/* Flat filtered view (when using filters/modes) */}
+                {isFilteredView && (
+                  <div className="mt-4">
+                    {items.length === 0 && !search ? (
+                      <div className="mt-6 rounded-lg border border-border bg-card p-8 text-center">
+                        <p className="text-muted-foreground">
+                          No items found in this time window. Try expanding the time range or run ingestion.
+                        </p>
+                      </div>
+                    ) : (
+                      <ItemList items={items} />
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-6">

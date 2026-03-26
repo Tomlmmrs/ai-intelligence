@@ -13,6 +13,9 @@ import {
   titleSimilarity,
   contentQualityMultiplier,
 } from "../utils/validate";
+import { scorePaper, rewritePaperSummary } from "../ranking/paper-filter";
+import { generateExplanation } from "../ranking/explain";
+import { scoreRealWorldRelevance, assignItemLabel, assignImpactTag } from "../ranking/relevance";
 
 // ─── Category Detection ──────────────────────────────────────────────
 const CATEGORY_KEYWORDS: Record<Category, string[]> = {
@@ -168,15 +171,17 @@ function calculateComposite(scores: {
   impact: number;
   practical: number;
   freshness: number;
+  realWorldRelevance: number;
   qualityMultiplier: number;
 }): number {
   const raw =
-    scores.importance * 0.18 +
-    scores.novelty * 0.12 +
-    scores.credibility * 0.10 +
-    scores.impact * 0.18 +
-    scores.practical * 0.07 +
-    scores.freshness * 0.35; // Freshness now 35% of composite (was 25%)
+    scores.importance * 0.14 +
+    scores.novelty * 0.08 +
+    scores.credibility * 0.08 +
+    scores.impact * 0.12 +
+    scores.practical * 0.05 +
+    scores.freshness * 0.30 +
+    scores.realWorldRelevance * 0.23; // Real-world relevance: 23% weight
 
   return raw * scores.qualityMultiplier;
 }
@@ -263,6 +268,12 @@ function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
   const isPrimarySource = PRIMARY_SOURCE_TYPES.includes(adapter.type);
   const normalizedUrl = normalizeUrl(raw.url);
 
+  // Real-world relevance scoring
+  const realWorldRelevance = scoreRealWorldRelevance(
+    raw.title, content, category, adapter.id, importance, isOpenSource,
+  );
+  const itemLabel = assignItemLabel(raw.title, category, isOpenSource);
+
   const composite = calculateComposite({
     importance,
     novelty,
@@ -270,8 +281,80 @@ function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
     impact,
     practical,
     freshness,
+    realWorldRelevance,
     qualityMultiplier,
   });
+
+  // Paper-specific scoring for research items
+  let paperFields: {
+    paperBroadRelevance?: number;
+    paperComposite?: number;
+    paperDepth?: string;
+    paperInclusionReason?: string;
+    showInMainFeed?: boolean;
+    showInResearchFeed?: boolean;
+    whyItMatters?: string;
+    whoShouldCare?: string;
+    aiSummary?: string;
+  } = {};
+
+  // For arXiv items in ANY category, set showInMainFeed based on real-world relevance
+  const isArxivSource = adapter.id.startsWith("arxiv");
+  if (isArxivSource && category !== "research") {
+    paperFields.showInMainFeed = realWorldRelevance >= 50;
+    paperFields.showInResearchFeed = true;
+  }
+
+  if (category === "research") {
+    const ps = scorePaper(raw.title, content, adapter.id, company);
+    paperFields = {
+      paperBroadRelevance: ps.broadRelevance,
+      paperComposite: ps.composite,
+      paperDepth: ps.depth,
+      paperInclusionReason: ps.inclusionReason,
+      showInMainFeed: ps.showInMainFeed,
+      showInResearchFeed: ps.showInResearchFeed,
+    };
+
+    // Rewrite paper summary for accessible presentation
+    if (content && ps.showInResearchFeed) {
+      const rewritten = rewritePaperSummary(raw.title, content, ps);
+      paperFields.whyItMatters = rewritten.whyItMatters;
+      paperFields.whoShouldCare = rewritten.whoShouldCare;
+      paperFields.aiSummary = rewritten.summary;
+    }
+  }
+
+  // Generate "Why this matters" for ALL items
+  let explainFields: { whyItMatters?: string; whoShouldCare?: string; implications?: string } = {};
+
+  if (paperFields.whyItMatters) {
+    // Research items already have whyItMatters from paper scoring — build full explanation
+    const who = company ? `Researchers at ${company}` : "Researchers";
+    let whatIsThis: string;
+    if (/breakthrough|first|state.of.the.art|sota/i.test(raw.title)) {
+      whatIsThis = `${who} have achieved a significant technical breakthrough that could shape future AI systems.`;
+    } else if (/safety|alignment|harm|bias/i.test(raw.title)) {
+      whatIsThis = `${who} have published important findings about making AI systems safer and more reliable.`;
+    } else {
+      whatIsThis = `${who} have published findings that could influence the next generation of AI systems.`;
+    }
+    explainFields.implications = `What is this?\n${whatIsThis}\n\nWhy it matters:\n${paperFields.whyItMatters}\n\nWho should care:\n${paperFields.whoShouldCare ?? "AI researchers and practitioners"}`;
+  } else {
+    const explanation = generateExplanation({
+      title: raw.title,
+      content,
+      category,
+      company,
+      importanceScore: importance,
+      isOpenSource,
+    });
+    explainFields = {
+      whyItMatters: explanation.whyItMatters,
+      whoShouldCare: explanation.whoShouldCare,
+      implications: `What is this?\n${explanation.whatIsThis}\n\nWhy it matters:\n${explanation.whyItMatters}\n\nWho should care:\n${explanation.whoShouldCare}`,
+    };
+  }
 
   return {
     id: randomUUID(),
@@ -296,6 +379,9 @@ function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
     practicalScore: practical,
     freshnessScore: freshness,
     compositeScore: Math.round(composite * 100) / 100,
+    realWorldRelevance,
+    itemLabel,
+    impactTag: assignImpactTag(importance, Math.round(composite), novelty, realWorldRelevance),
     company,
     isOpenSource,
     isPrimarySource,
@@ -304,6 +390,8 @@ function normalize(raw: RawItem, adapter: SourceAdapter): NewItem {
     ingestionStatus: "ok",
     tags: JSON.stringify(tags),
     entities: JSON.stringify(company ? [company] : []),
+    ...paperFields,
+    ...explainFields,
   };
 }
 

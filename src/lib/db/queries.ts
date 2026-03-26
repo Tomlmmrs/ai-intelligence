@@ -19,6 +19,7 @@ export interface ItemQueryOptions {
   bookmarkedOnly?: boolean;
   includeDemo?: boolean;
   timeWindow?: TimeWindow;
+  paperDepth?: "general" | "intermediate" | "advanced";
 }
 
 /**
@@ -48,6 +49,7 @@ const freshnessBoostedScore = sql`(
   * CASE WHEN ${items.dateConfidence} = 'unknown' THEN 0.4
          WHEN ${items.dateConfidence} = 'estimated' THEN 0.7
          ELSE 1.0 END
+  * (0.6 + 0.4 * COALESCE(${items.realWorldRelevance}, 50) / 100.0)
 )`;
 
 /**
@@ -116,6 +118,32 @@ export function getItems(opts: ItemQueryOptions = {}) {
   }
   if (opts.mode === "research") {
     conditions.push(eq(items.category, "research"));
+    // In research mode, only show items that passed research feed filter
+    conditions.push(
+      or(eq(items.showInResearchFeed, true), isNull(items.showInResearchFeed))
+    );
+    // Optional depth filter for research mode
+    if (opts.paperDepth) {
+      conditions.push(eq(items.paperDepth, opts.paperDepth));
+    }
+  }
+
+  // In non-research modes, filter out low-value papers from the main feed
+  // Also treat arXiv items in non-research categories as research for filtering
+  if (opts.mode !== "research" && opts.mode !== "opensource") {
+    conditions.push(
+      or(
+        // Non-research, non-arXiv items always pass
+        and(
+          sql`${items.category} != 'research'`,
+          sql`${items.source} NOT LIKE 'arxiv%'`
+        ),
+        // Research or arXiv items must have showInMainFeed=true
+        eq(items.showInMainFeed, true),
+        // Backwards compat for items before paper scoring
+        and(isNull(items.showInMainFeed), sql`${items.source} NOT LIKE 'arxiv%'`)
+      )
+    );
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -152,14 +180,40 @@ export function getItems(opts: ItemQueryOptions = {}) {
       orderBy = [desc(freshnessBoostedScore), desc(items.publishedAt)];
   }
 
-  return db
+  const requestedLimit = opts.limit ?? 50;
+
+  // In non-research modes, cap research items at ~20% of results.
+  // Fetch extra to ensure we have enough non-research items after capping.
+  const needsCap = opts.mode !== "research" && opts.mode !== "opensource";
+  const fetchLimit = needsCap ? requestedLimit * 2 : requestedLimit;
+
+  const rows = db
     .select()
     .from(items)
     .where(where)
     .orderBy(...orderBy)
-    .limit(opts.limit ?? 50)
+    .limit(fetchLimit)
     .offset(opts.offset ?? 0)
     .all();
+
+  if (!needsCap) return rows.slice(0, requestedLimit);
+
+  // Interleave: allow at most maxResearch research items in the result
+  const maxResearch = Math.max(3, Math.floor(requestedLimit * 0.15));
+  let researchCount = 0;
+  const result: typeof rows = [];
+
+  for (const row of rows) {
+    if (result.length >= requestedLimit) break;
+    // Cap research-category items (arXiv model/tool items that passed the filter are allowed)
+    if (row.category === "research") {
+      if (researchCount >= maxResearch) continue;
+      researchCount++;
+    }
+    result.push(row);
+  }
+
+  return result;
 }
 
 export function getItemById(id: string) {
@@ -472,6 +526,98 @@ export function getCompanies() {
     .orderBy(sql`count(*) DESC`)
     .limit(30)
     .all();
+}
+
+// ─── Feed Sections (for homepage) ────────────────────────────────────
+
+export function getFeedSections(timeWindow: TimeWindow = "3d") {
+  const twCond = timeWindowCondition(timeWindow);
+  const baseConditions = [
+    eq(items.isDemo, false),
+    isNull(items.duplicateOf),
+  ];
+  if (twCond) baseConditions.push(twCond);
+
+  // Helper: run a section query
+  const sectionQuery = (extraConditions: any[], limit: number, orderBy: any[]) => {
+    return db
+      .select()
+      .from(items)
+      .where(and(...baseConditions, ...extraConditions))
+      .orderBy(...orderBy)
+      .limit(limit)
+      .all();
+  };
+
+  const byFreshness = [desc(freshnessBoostedScore)];
+  const byRecency = [
+    desc(sql`CASE WHEN ${items.publishedAt} IS NOT NULL THEN 1 ELSE 0 END`),
+    desc(sql`COALESCE(${items.publishedAt}, ${items.discoveredAt})`),
+  ];
+
+  // Major AI Releases: model releases + major announcements from official sources
+  const releases = sectionQuery(
+    [
+      or(eq(items.category, "model"), eq(items.category, "company")),
+      sql`${items.source} NOT LIKE 'arxiv%'`,
+      sql`COALESCE(${items.realWorldRelevance}, 50) >= 55`,
+    ],
+    6,
+    byFreshness,
+  );
+
+  // New Tools & Products
+  const tools = sectionQuery(
+    [
+      eq(items.category, "tool"),
+      sql`${items.source} NOT LIKE 'arxiv%'`,
+    ],
+    6,
+    byFreshness,
+  );
+
+  // Open Source Momentum
+  const opensource = sectionQuery(
+    [
+      or(eq(items.category, "opensource"), eq(items.isOpenSource, true)),
+    ],
+    5,
+    byFreshness,
+  );
+
+  // Important Developments (high-scoring non-research)
+  const developments = sectionQuery(
+    [
+      sql`${items.category} != 'research'`,
+      sql`${items.source} NOT LIKE 'arxiv%'`,
+      sql`COALESCE(${items.importanceScore}, 50) >= 55`,
+    ],
+    8,
+    byFreshness,
+  );
+
+  // Important Research (only main-feed worthy papers)
+  const research = sectionQuery(
+    [
+      eq(items.category, "research"),
+      eq(items.showInMainFeed, true),
+      sql`COALESCE(${items.realWorldRelevance}, 50) >= 30`,
+    ],
+    5,
+    byFreshness,
+  );
+
+  // Early Signals (novel, recent, lower importance)
+  const signals = sectionQuery(
+    [
+      sql`COALESCE(${items.noveltyScore}, 50) >= 60`,
+      sql`${items.source} NOT LIKE 'arxiv%'`,
+    ],
+    4,
+    [desc(items.noveltyScore), desc(sql`COALESCE(${items.publishedAt}, ${items.discoveredAt})`)],
+  );
+
+  return { releases, tools, opensource, developments, research, signals };
 }
 
 // ─── Ingestion Stats (for admin) ────────────────────────────────────

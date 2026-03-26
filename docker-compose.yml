@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - DATABASE_URL=/app/data/intelligence.db
+      - DEMO_MODE=false
+      - INGEST_API_KEY=${INGEST_API_KEY}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    restart: unless-stopped
+
+volumes:
+  db-data:

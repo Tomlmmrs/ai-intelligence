@@ -40,6 +40,17 @@ export function initDatabase() {
       composite_score REAL DEFAULT 50,
       freshness_score REAL DEFAULT 50,
 
+      real_world_relevance REAL DEFAULT 50,
+      item_label TEXT,
+      impact_tag TEXT,
+
+      paper_broad_relevance REAL,
+      paper_composite REAL,
+      paper_depth TEXT,
+      paper_inclusion_reason TEXT,
+      show_in_main_feed INTEGER DEFAULT 1,
+      show_in_research_feed INTEGER DEFAULT 1,
+
       entities TEXT,
       tags TEXT,
 
@@ -73,6 +84,8 @@ export function initDatabase() {
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_demo ON items(is_demo)`);
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_date_confidence ON items(date_confidence)`);
   db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_duplicate ON items(duplicate_of)`);
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_show_main ON items(show_in_main_feed)`);
+  db.run(sql`CREATE INDEX IF NOT EXISTS idx_items_paper_depth ON items(paper_depth)`);
 
   // ─── Clusters table ───────────────────────────────────────────────
   db.run(sql`
