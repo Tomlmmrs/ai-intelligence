@@ -97,7 +97,7 @@ export class RssAdapter implements SourceAdapter {
       "i"
     );
     const cdataMatch = cdataRegex.exec(xml);
-    if (cdataMatch) return cdataMatch[1].trim();
+    if (cdataMatch) return this.stripHtml(cdataMatch[1].trim());
 
     // Handle regular content
     const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
@@ -206,6 +206,7 @@ export class RssAdapter implements SourceAdapter {
   private stripHtml(html: string): string {
     return html
       .replace(/<[^>]+>/g, "")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // markdown images
       // Decode numeric HTML entities (decimal and hex)
       .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
       .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))

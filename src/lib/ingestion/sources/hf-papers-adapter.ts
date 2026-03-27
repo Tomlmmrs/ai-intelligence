@@ -63,10 +63,14 @@ export class HuggingFacePapersAdapter implements SourceAdapter {
           dateConfidence = "day";
         }
 
+        const abstract = paper.summary
+          ? "Abstract: " + paper.summary.replace(/^abstract[:\s]*/i, "").trim()
+          : undefined;
+
         items.push({
           title: paper.title,
           url,
-          content: paper.summary || undefined,
+          content: abstract,
           publishedAt: publishedAt || new Date().toISOString().split("T")[0],
           dateConfidence,
         });

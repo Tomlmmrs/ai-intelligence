@@ -238,9 +238,20 @@ async function findSimilarItem(title: string, url: string): Promise<string | nul
 
 // ─── Normalize ───────────────────────────────────────────────────────
 
+function cleanArxivContent(text: string): string {
+  // Strip arXiv preamble: "arXiv:XXXX Announce Type: ... Abstract: actual text"
+  const match = /abstract:\s*/i.exec(text);
+  if (match) {
+    return "Abstract: " + text.slice(match.index + match[0].length).trim();
+  }
+  return text;
+}
+
 async function normalize(raw: RawItem, adapter: SourceAdapter): Promise<NewItem> {
   const now = new Date().toISOString();
-  const content = raw.content ?? "";
+  const isArxiv = adapter.id.startsWith("arxiv") || adapter.id === "hf_papers";
+  const rawContent = raw.content ?? "";
+  const content = isArxiv && rawContent ? cleanArxivContent(rawContent) : rawContent;
   const category = detectCategory(raw.title, content);
   const company = extractCompany(raw.title, content);
   const isOpenSource = detectOpenSource(raw.title, content, raw.url);

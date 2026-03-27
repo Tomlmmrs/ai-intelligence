@@ -121,16 +121,6 @@ export default function Sidebar({ open, onClose, desktopVisible }: SidebarProps)
 
   const navContent = (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border-subtle bg-card/80 p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">
-          Active Lens
-        </p>
-        <p className="mt-2 text-base font-semibold text-foreground">{activeItem.label}</p>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Move between the core dashboard views and categories without leaving the main feed.
-        </p>
-      </div>
-
       {navSections.map((section) => (
         <NavSection
           key={section.title}
