@@ -28,7 +28,7 @@ export const navSections: NavSection[] = [
   {
     title: "Views",
     items: [
-      { key: "latest", label: "Latest", icon: Zap, param: "view" },
+      { key: "latest", label: "Briefing", icon: Zap, param: "view" },
       { key: "important", label: "Most Important", icon: Trophy, param: "view" },
       { key: "research", label: "Research to Watch", icon: BookOpen, param: "view" },
     ],

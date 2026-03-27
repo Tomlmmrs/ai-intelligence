@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { usePrefetchedNavigation } from "@/components/layout/usePrefetchedNavigation";
 
 const modes = [
-  { key: "latest", label: "Latest" },
+  { key: "latest", label: "Briefing" },
   { key: "important", label: "Most Important" },
   { key: "research", label: "Research" },
 ] as const;

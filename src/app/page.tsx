@@ -207,7 +207,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                           ? "Most Important"
                           : mode === "research"
                             ? "Research to Watch"
-                            : "Latest Updates"}
+                            : "Briefing"}
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
                       A simplified feed view based on the current lens and filters.

@@ -206,12 +206,24 @@ export class RssAdapter implements SourceAdapter {
   private stripHtml(html: string): string {
     return html
       .replace(/<[^>]+>/g, "")
+      // Decode numeric HTML entities (decimal and hex)
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+      // Named entities
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
       .replace(/&#39;/g, "'")
       .replace(/&nbsp;/g, " ")
+      .replace(/&mdash;/g, "—")
+      .replace(/&ndash;/g, "–")
+      .replace(/&hellip;/g, "…")
+      .replace(/&lsquo;/g, "\u2018")
+      .replace(/&rsquo;/g, "\u2019")
+      .replace(/&ldquo;/g, "\u201C")
+      .replace(/&rdquo;/g, "\u201D")
       .replace(/\s+/g, " ")
       .trim();
   }
