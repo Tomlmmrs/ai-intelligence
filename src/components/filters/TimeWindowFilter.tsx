@@ -1,6 +1,9 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { usePrefetchedNavigation } from "@/components/layout/usePrefetchedNavigation";
 
 const windows = [
   { key: "24h", label: "24h" },
@@ -11,18 +14,32 @@ const windows = [
 ] as const;
 
 export default function TimeWindowFilter() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const activeWindow = searchParams.get("t") ?? "3d";
+  const searchKey = searchParams.toString();
+  const { isPending, navigate, prefetch } = usePrefetchedNavigation();
+  const currentWindow = searchParams.get("t") ?? "3d";
+  const [pendingWindow, setPendingWindow] = useState<string | null>(null);
+  const activeWindow = pendingWindow ?? currentWindow;
 
-  const handleSelect = (key: string) => {
+  useEffect(() => {
+    setPendingWindow(null);
+  }, [searchKey]);
+
+  const getHref = (key: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (key === "3d") {
-      params.delete("t"); // default, don't clutter URL
+      params.delete("t");
     } else {
       params.set("t", key);
     }
-    router.push(`/?${params.toString()}`);
+    return `/?${params.toString()}`;
+  };
+
+  const handleSelect = (key: string) => {
+    const href = getHref(key);
+    setPendingWindow(key);
+    prefetch(href);
+    navigate(href);
   };
 
   return (
@@ -38,13 +55,20 @@ export default function TimeWindowFilter() {
             key={w.key}
             type="button"
             onClick={() => handleSelect(w.key)}
+            onMouseEnter={() => prefetch(getHref(w.key))}
+            onFocus={() => prefetch(getHref(w.key))}
+            onTouchStart={() => prefetch(getHref(w.key))}
             className={`rounded-full px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
               isActive
                 ? "bg-accent/15 text-accent shadow-[inset_0_0_0_1px_rgba(59,130,246,0.22)]"
                 : "bg-background/60 text-muted-foreground hover:bg-card-hover hover:text-foreground"
             }`}
+            aria-busy={isPending && isActive}
           >
-            {w.label}
+            <span className="inline-flex items-center gap-1.5">
+              <span>{w.label}</span>
+              {isPending && isActive && <Loader2 className="h-3 w-3 animate-spin" />}
+            </span>
           </button>
         );
       })}

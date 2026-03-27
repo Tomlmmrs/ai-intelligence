@@ -2,10 +2,11 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Activity, Bell, Menu, Search, Settings, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Activity, Bell, Loader2, Menu, Search, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { getActiveNavigationState } from "./navigation";
+import { usePrefetchedNavigation } from "./usePrefetchedNavigation";
 
 interface HeaderProps {
   unreadCount?: number;
@@ -18,9 +19,9 @@ export default function Header({
   mobileNavOpen = false,
   onToggleMobileNav,
 }: HeaderProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
+  const { isPending, navigate, prefetch } = usePrefetchedNavigation();
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [searchOpen, setSearchOpen] = useState(false);
   const { activeItem } = getActiveNavigationState(searchParams);
@@ -40,7 +41,9 @@ export default function Header({
       params.delete("q");
     }
 
-    router.push(`/?${params.toString()}`);
+    const href = `/?${params.toString()}`;
+    prefetch(href);
+    navigate(href);
     setSearchOpen(false);
   };
 
@@ -89,6 +92,9 @@ export default function Header({
               onChange={(event) => setQuery(event.target.value)}
               className="h-11 w-full rounded-2xl border border-border bg-card/90 pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
             />
+            {isPending && (
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+            )}
           </div>
         </form>
 
@@ -142,6 +148,9 @@ export default function Header({
                 autoFocus
                 className="h-11 w-full rounded-2xl border border-border bg-card/90 pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent/40"
               />
+              {isPending && (
+                <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              )}
             </div>
           </form>
         </div>

@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Activity, ArrowRight, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Activity, ArrowRight, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { getActiveNavigationState, navSections, type NavItem } from "./navigation";
+import { usePrefetchedNavigation } from "./usePrefetchedNavigation";
 
 function NavSection({
   title,
   items,
   activeKey,
   activeParam,
+  isPending,
   onSelect,
+  onPrefetch,
 }: {
   title: string;
   items: NavItem[];
   activeKey: string | null;
   activeParam: string;
+  isPending: boolean;
   onSelect: (item: NavItem) => void;
+  onPrefetch: (item: NavItem) => void;
 }) {
   return (
     <section className="space-y-2">
@@ -35,16 +40,24 @@ function NavSection({
               key={item.key}
               type="button"
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onPrefetch(item)}
+              onFocus={() => onPrefetch(item)}
+              onTouchStart={() => onPrefetch(item)}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors lg:gap-2.5 lg:px-3 lg:py-2",
                 isActive
                   ? "bg-accent/15 text-accent shadow-[inset_0_0_0_1px_rgba(59,130,246,0.22)]"
                   : "text-muted-foreground hover:bg-card-hover hover:text-foreground"
               )}
+              aria-busy={isPending && isActive}
             >
               <Icon className="h-4 w-4 shrink-0 lg:h-3.5 lg:w-3.5" />
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {isActive && <ArrowRight className="h-3.5 w-3.5 shrink-0 text-accent/80" />}
+              {isPending && isActive ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-accent/80" />
+              ) : (
+                isActive && <ArrowRight className="h-3.5 w-3.5 shrink-0 text-accent/80" />
+              )}
             </button>
           );
         })}
@@ -59,9 +72,14 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const { activeItem, activeKey, activeParam } = getActiveNavigationState(searchParams);
+  const searchKey = searchParams.toString();
+  const { isPending, navigate, prefetch } = usePrefetchedNavigation();
+  const currentState = getActiveNavigationState(searchParams);
+  const [pendingItem, setPendingItem] = useState<NavItem | null>(null);
+  const activeItem = pendingItem ?? currentState.activeItem;
+  const activeKey = pendingItem?.key ?? currentState.activeKey;
+  const activeParam = pendingItem?.param ?? currentState.activeParam;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -79,13 +97,24 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     };
   }, [open, onClose]);
 
-  const handleSelect = (item: NavItem) => {
+  useEffect(() => {
+    setPendingItem(null);
+  }, [searchKey]);
+
+  const getHref = (item: NavItem) => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("feature");
     params.delete("category");
     params.delete("view");
     params.set(item.param, item.key);
-    router.push(`/?${params.toString()}`);
+    return `/?${params.toString()}`;
+  };
+
+  const handleSelect = (item: NavItem) => {
+    const href = getHref(item);
+    setPendingItem(item);
+    prefetch(href);
+    navigate(href);
     onClose();
   };
 
@@ -108,7 +137,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           items={section.items}
           activeKey={activeKey}
           activeParam={activeParam}
+          isPending={isPending}
           onSelect={handleSelect}
+          onPrefetch={(item) => prefetch(getHref(item))}
         />
       ))}
     </div>

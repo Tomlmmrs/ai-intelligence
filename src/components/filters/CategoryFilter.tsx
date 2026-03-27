@@ -1,6 +1,9 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { usePrefetchedNavigation } from "@/components/layout/usePrefetchedNavigation";
 
 const categories = [
   { key: "all", label: "All", color: "bg-muted/20 text-muted-foreground" },
@@ -14,18 +17,32 @@ const categories = [
 ] as const;
 
 export default function CategoryFilter() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const activeCategory = searchParams.get("category") ?? "all";
+  const searchKey = searchParams.toString();
+  const { isPending, navigate, prefetch } = usePrefetchedNavigation();
+  const currentCategory = searchParams.get("category") ?? "all";
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
+  const activeCategory = pendingCategory ?? currentCategory;
 
-  const handleSelect = (key: string) => {
+  useEffect(() => {
+    setPendingCategory(null);
+  }, [searchKey]);
+
+  const getHref = (key: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (key === "all") {
       params.delete("category");
     } else {
       params.set("category", key);
     }
-    router.push(`/?${params.toString()}`);
+    return `/?${params.toString()}`;
+  };
+
+  const handleSelect = (key: string) => {
+    const href = getHref(key);
+    setPendingCategory(key);
+    prefetch(href);
+    navigate(href);
   };
 
   return (
@@ -38,13 +55,20 @@ export default function CategoryFilter() {
             key={cat.key}
             type="button"
             onClick={() => handleSelect(cat.key)}
+            onMouseEnter={() => prefetch(getHref(cat.key))}
+            onFocus={() => prefetch(getHref(cat.key))}
+            onTouchStart={() => prefetch(getHref(cat.key))}
             className={`rounded-full px-3 py-2 text-xs font-medium whitespace-nowrap transition-all ${
               isActive
                 ? `${cat.color} ring-1 ring-current/20`
                 : "border border-border-subtle bg-background/60 text-muted-foreground hover:text-foreground"
             }`}
+            aria-busy={isPending && isActive}
           >
-            {cat.label}
+            <span className="inline-flex items-center gap-1.5">
+              <span>{cat.label}</span>
+              {isPending && isActive && <Loader2 className="h-3 w-3 animate-spin" />}
+            </span>
           </button>
         );
       })}
