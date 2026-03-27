@@ -3,6 +3,7 @@
 /.pnp
 .pnp.*
 .yarn/*
+CLAUDE_HANDOFF_TODAY.txt
 
 # next.js
 /.next/
