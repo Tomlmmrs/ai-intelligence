@@ -69,9 +69,10 @@ function NavSection({
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  desktopVisible: boolean;
 }
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+export default function Sidebar({ open, onClose, desktopVisible }: SidebarProps) {
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
   const { isPending, navigate, prefetch } = usePrefetchedNavigation();
@@ -186,7 +187,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div className="flex-1 overflow-y-auto px-4 py-5">{navContent}</div>
       </aside>
 
-      <aside className="hidden w-72 shrink-0 border-r border-border/80 bg-background/95 lg:block xl:w-80">
+      <aside
+        className={cn(
+          "hidden shrink-0 border-r border-border/80 bg-background/95 transition-[width,opacity] duration-200 lg:block",
+          desktopVisible ? "lg:w-72 xl:w-80 opacity-100" : "w-0 border-r-0 opacity-0 overflow-hidden"
+        )}
+        aria-hidden={!desktopVisible}
+      >
         <div className="sticky top-16 h-[calc(100dvh-4rem)] overflow-y-auto px-5 py-6">
           {navContent}
         </div>

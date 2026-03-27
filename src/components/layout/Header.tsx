@@ -3,7 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Activity, Loader2, Menu, Search, X } from "lucide-react";
+import { Activity, Loader2, Menu, PanelLeft, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { getActiveNavigationState } from "./navigation";
 import { usePrefetchedNavigation } from "./usePrefetchedNavigation";
@@ -11,11 +11,15 @@ import { usePrefetchedNavigation } from "./usePrefetchedNavigation";
 interface HeaderProps {
   mobileNavOpen?: boolean;
   onToggleMobileNav?: () => void;
+  desktopNavVisible?: boolean;
+  onToggleDesktopNav?: () => void;
 }
 
 export default function Header({
   mobileNavOpen = false,
   onToggleMobileNav,
+  desktopNavVisible = true,
+  onToggleDesktopNav,
 }: HeaderProps) {
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
@@ -56,6 +60,18 @@ export default function Header({
             aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"}
           >
             {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleDesktopNav}
+            className={cn(
+              "hidden rounded-xl p-2 text-muted-foreground transition-colors hover:bg-card-hover hover:text-foreground lg:flex",
+              desktopNavVisible && "bg-card text-foreground"
+            )}
+            aria-label={desktopNavVisible ? "Hide sidebar" : "Show sidebar"}
+          >
+            <PanelLeft className="h-4 w-4" />
           </button>
 
           <Link href="/" className="flex min-w-0 items-center gap-3">
