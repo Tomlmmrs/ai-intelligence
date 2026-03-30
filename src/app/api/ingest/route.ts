@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  // Require API key for ingestion
   const apiKey = process.env.INGEST_API_KEY;
-  if (apiKey) {
-    const provided =
-      request.headers.get("x-api-key") ??
-      request.nextUrl.searchParams.get("key");
-    if (provided !== apiKey) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!apiKey) {
+    return NextResponse.json({ error: "INGEST_API_KEY not configured" }, { status: 500 });
+  }
+
+  const provided =
+    request.headers.get("x-api-key") ??
+    request.nextUrl.searchParams.get("key");
+  if (provided !== apiKey) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

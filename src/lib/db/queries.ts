@@ -3,7 +3,7 @@ import { eq, desc, like, or, and, sql, isNull } from "drizzle-orm";
 import type { RankMode, Category, TimeWindow } from "../types";
 import { TIME_WINDOW_HOURS } from "../types";
 
-const { items, userPreferences, sources: sourcesTable, sourceFetchLog } = schema;
+const { items, userPreferences } = schema;
 
 // ─── Items ──────────────────────────────────────────────────────────
 
@@ -250,88 +250,6 @@ export async function getDashboardStats(includeDemo = false) {
   };
 }
 
-// ─── Source Health ───────────────────────────────────────────────────
-
-export async function getSourceHealth() {
-  const sources_list = await db.select().from(sourcesTable).all();
-  return Promise.all(sources_list.map(async (source) => {
-    const itemCount = (await db
-      .select({ count: sql<number>`count(*)` })
-      .from(items)
-      .where(eq(items.source, source.id))
-      .get())?.count ?? 0;
-
-    const liveItemCount = (await db
-      .select({ count: sql<number>`count(*)` })
-      .from(items)
-      .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
-      .get())?.count ?? 0;
-
-    const recentItemCount = (await db
-      .select({ count: sql<number>`count(*)` })
-      .from(items)
-      .where(and(
-        eq(items.source, source.id),
-        eq(items.isDemo, false),
-        sql`COALESCE(${items.publishedAt}, ${items.discoveredAt}) >= datetime('now', '-72 hours')`
-      ))
-      .get())?.count ?? 0;
-
-    const avgFreshnessResult = await db
-      .select({ avg: sql<number>`AVG(${items.freshnessScore})` })
-      .from(items)
-      .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
-      .get();
-
-    const oldestLiveItem = await db
-      .select({ publishedAt: items.publishedAt })
-      .from(items)
-      .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
-      .orderBy(items.publishedAt)
-      .limit(1)
-      .get();
-
-    const newestLiveItem = await db
-      .select({ publishedAt: items.publishedAt })
-      .from(items)
-      .where(and(eq(items.source, source.id), eq(items.isDemo, false)))
-      .orderBy(desc(items.publishedAt))
-      .limit(1)
-      .get();
-
-    // Get recent fetch logs
-    const recentLogs = await db
-      .select()
-      .from(sourceFetchLog)
-      .where(eq(sourceFetchLog.sourceId, source.id))
-      .orderBy(desc(sourceFetchLog.fetchedAt))
-      .limit(5)
-      .all();
-
-    return {
-      ...source,
-      itemCount,
-      liveItemCount,
-      recentItemCount,
-      avgFreshness: avgFreshnessResult?.avg ?? null,
-      oldestItem: oldestLiveItem?.publishedAt ?? null,
-      newestItem: newestLiveItem?.publishedAt ?? null,
-      recentLogs,
-    };
-  }));
-}
-
-// ─── Admin Items View ───────────────────────────────────────────────
-
-export async function getItemsForAdmin(limit = 50) {
-  return await db
-    .select()
-    .from(items)
-    .orderBy(desc(items.discoveredAt))
-    .limit(limit)
-    .all();
-}
-
 // ─── User Preferences ──────────────────────────────────────────────
 
 export async function getUserPreferences() {
@@ -459,34 +377,3 @@ export async function getTopEntities(limit = 8, windowHours = 72) {
   }[];
 }
 
-// ─── Ingestion Stats (for admin) ────────────────────────────────────
-
-export async function getIngestionStats() {
-  const sourceStats = await db
-    .select({
-      source: items.source,
-      total: sql<number>`count(*)`,
-      withDates: sql<number>`SUM(CASE WHEN ${items.publishedAt} IS NOT NULL THEN 1 ELSE 0 END)`,
-      withExactDates: sql<number>`SUM(CASE WHEN ${items.dateConfidence} = 'exact' THEN 1 ELSE 0 END)`,
-      avgComposite: sql<number>`AVG(${items.compositeScore})`,
-      avgFreshness: sql<number>`AVG(${items.freshnessScore})`,
-      primary: sql<number>`SUM(CASE WHEN ${items.isPrimarySource} = 1 THEN 1 ELSE 0 END)`,
-      duplicates: sql<number>`SUM(CASE WHEN ${items.duplicateOf} IS NOT NULL THEN 1 ELSE 0 END)`,
-    })
-    .from(items)
-    .where(eq(items.isDemo, false))
-    .groupBy(items.source)
-    .all();
-
-  const dateConfidenceBreakdown = await db
-    .select({
-      confidence: items.dateConfidence,
-      count: sql<number>`count(*)`,
-    })
-    .from(items)
-    .where(eq(items.isDemo, false))
-    .groupBy(items.dateConfidence)
-    .all();
-
-  return { sourceStats, dateConfidenceBreakdown };
-}
