@@ -1,6 +1,6 @@
 # NeuroSignal
 
-<img width="1452" height="522" alt="image" src="https://github.com/user-attachments/assets/577f51f0-35fc-4316-bc6a-cb1a46077d84" />
+<img width="1032" height="496" alt="image" src="https://github.com/user-attachments/assets/2ed8cb9e-e60e-4918-a25a-f52518813dc9" />
 
 ## What you get
 
