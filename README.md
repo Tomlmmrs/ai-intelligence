@@ -1,6 +1,6 @@
 # NeuroSignal
 
-![NeuroSignal Banner](public/banner-2x.png)
+<img width="2400" height="1260" alt="banner-2x" src="https://github.com/user-attachments/assets/a15c63f6-0629-4dd4-a472-6df376d4ab2b" />
 
 ## What you get
 
